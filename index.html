@@ -27,6 +27,7 @@
 <option value="99">99</option>
 <option value="113">113</option>
 <option value="115">115</option>
+<option value="140">140</option>
 <option value="198">198</option>
 <option value="300">300</option>
 <option value="711">711</option>
@@ -38,6 +39,20 @@
     console.log(data);
   });
         */
+
+  function findDateConnections (patientInfoObject,visitObject,graph) {
+    var foundindex=0;
+    common={name: visitObject.visit_admit_datetime.value, group: "CommonDates"}
+    for (var i=0;i<graph.nodes.length;i++) {
+      if(graph.nodes[i].name === common.name) {
+        foundindex = i;
+      }
+    };
+    if (foundindex == 0) {graph.nodes.push(common); foundindex = graph.nodes.length-1;};
+    graph.links.push({source:graph.nodes[foundindex], target:graph.nodes.indexOf(visitObject)});
+    graph.links.push({source:graph.nodes[foundindex], target:graph.nodes.indexOf(patientInfoObject)});
+  };
+
   function patientPlot(visits, problems, vitals, allergies, prescription, immunizations, cpt) {
     var vitalstime="";
     var groupvar=1;
@@ -79,6 +94,11 @@
       d.group = "Vital";
       graph.nodes.push(d);
       graph.links.push({source:3, target:graph.nodes.length-1});
+      visits.results.forEach(function (x) {
+          if(d.date_time_vitals_taken.value == x.visit_admit_datetime.value) {
+            findDateConnections(d,x,graph)
+          }
+      });
     });
 
     problems.results.forEach(function (d) {
@@ -86,6 +106,11 @@
       d.group = "Problem";
       graph.nodes.push(d);
       graph.links.push({source:2, target:graph.nodes.length-1});
+      visits.results.forEach(function (x, i) {
+        if(d.date_entered.value == x.visit_admit_datetime.value) {
+            findDateConnections(d,x,graph)
+        }
+      });
     });
 
     allergies.results.forEach(function (d) {
@@ -93,6 +118,14 @@
       d.group = "Allergy";
       graph.nodes.push(d);
       graph.links.push({source:4, target:graph.nodes.length-1});
+      visits.results.forEach(function (x, i) {
+          try {
+            if(d.verification_date_time.value == x.visit_admit_datetime.value) {
+              findDateConnections(d,x,graph)
+            }
+          }
+          catch(e){};
+      });
     });
 
     prescription.results.forEach(function (d) {
@@ -100,6 +133,11 @@
       d.group = "Prescription";
       graph.nodes.push(d);
       graph.links.push({source:5, target:graph.nodes.length-1});
+      visits.results.forEach(function (x) {
+          if(d.issue_date.value == x.visit_admit_datetime.value) {
+            findDateConnections(d,x,graph)
+          }
+      });
     });
 
     immunizations.results.forEach(function (d) {
@@ -107,6 +145,11 @@
       d.group = "Immunization";
       graph.nodes.push(d);
       graph.links.push({source:6, target:graph.nodes.length-1});
+      visits.results.forEach(function (x, i) {
+          if(d.visit.label == "VISIT/" + x.visit_admit_datetime.value) {
+            findDateConnections(d,x,graph)
+          }
+      });
     });
 
     cpt.results.forEach(function (d) {
@@ -114,13 +157,17 @@
       d.group = "CPT Code";
       graph.nodes.push(d);
       graph.links.push({source:7, target:graph.nodes.length-1});
+      visits.results.forEach(function (x, i) {
+          if(d.visit.label == "VISIT/" + x.visit_admit_datetime.value) {
+            findDateConnections(d,x,graph)
+          };
+      });
     });
 
 var width = 960,
     height = 750;
 
 var color = d3.scale.category20();
-
 var force = d3.layout.force()
     .charge(-120)
     .linkDistance(30)
@@ -147,24 +194,28 @@ var svg = d3.select("body").append("svg")
 
   var node = svg.selectAll(".node")
       .data(graph.nodes)
-    .enter().append("circle")
+    .enter().append("path")
       .attr("class", "node")
-      .attr("r", 5)
+      .attr("d", d3.svg.symbol()
+        .type(function(d) {
+          if(d.group== "CommonDates") { return "square";}
+          else {return "circle";};})
+        .size(function (d) {
+          if(d.group=="CommonDates") { return "128";}
+          else {return 64;};}))
       .style("fill", function(d) { return color(d.group); })
       .call(force.drag);
 
-  svg.select(".node").attr("r",15);
+  svg.select(".node").attr("d",d3.svg.symbol().size(192));
   node.append("title")
       .text(function(d) { return d.name; });
 
   force.on("tick", function() {
+    node.attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")";});
     link.attr("x1", function(d) { return d.source.x; })
         .attr("y1", function(d) { return d.source.y; })
         .attr("x2", function(d) { return d.target.x; })
         .attr("y2", function(d) { return d.target.y; });
-
-    node.attr("cx", function(d) { return d.x; })
-        .attr("cy", function(d) { return d.y; });
   });
 }
 function queryPatient(patientIEN){
