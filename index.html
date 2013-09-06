@@ -12,6 +12,16 @@
   stroke-opacity: .6;
 }
 
+.foundlink {
+  stroke: red;
+  stroke-width: 2px;
+  stroke-opacity: .6;
+}
+
+.xaxis text {
+  font-size: 10px;
+}
+
 </style>
 <body>
 <center>
@@ -28,28 +38,30 @@
 <option value="113">113</option>
 <option value="115">115</option>
 <option value="140">140</option>
+<option value="154">154</option>
 <option value="198">198</option>
+<option value="227">227</option>
+<option value="251">251</option>
 <option value="300">300</option>
 <option value="711">711</option>
 </select>
 <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 <script>
-  /*
-  d3.json("service", function (error, data) {
-    console.log(data);
-  });
-        */
+  function splitDateTime(dateTimeString){
+     data=dateTimeString.split("T");
+     dateinfo=data[0].split("-");
+     timeinfo=data[1].split(":");
+     var appdate = new Date(dateinfo[0],dateinfo[1],dateinfo[2]);
+     return appdate;
+  };
 
   function findDateConnections (patientInfoObject,visitObject,graph) {
     var foundindex=0;
-    common={name: visitObject.visit_admit_datetime.value, group: "CommonDates"}
     for (var i=0;i<graph.nodes.length;i++) {
-      if(graph.nodes[i].name === common.name) {
+      if(graph.nodes[i].name === visitObject.name) {
         foundindex = i;
       }
     };
-    if (foundindex == 0) {graph.nodes.push(common); foundindex = graph.nodes.length-1;};
-    graph.links.push({source:graph.nodes[foundindex], target:graph.nodes.indexOf(visitObject)});
     graph.links.push({source:graph.nodes[foundindex], target:graph.nodes.indexOf(patientInfoObject)});
   };
 
@@ -60,9 +72,7 @@
     nodes: [{name: visits.results[0].patient_name.label, group: "Patient"}],
     links: []
     };
-
-    graph.nodes.push({name: "Visits", group:"Visits"});
-    graph.links.push({source:0, target:graph.nodes.length-1});
+    var visitarray=[];
 
     graph.nodes.push({name: "Problems", group:"Problems"});
     graph.links.push({source:0, target:graph.nodes.length-1});
@@ -85,169 +95,199 @@
     visits.results.forEach(function (d) {
       d.name = d.encounter_type.value + "\n" + d.visit_admit_datetime.value;
       d.group = "Visit";
+      visitarray.push(d.visit_admit_datetime.value);
+      d.jsdate = splitDateTime(d.visit_admit_datetime.value);
       graph.nodes.push(d);
-      graph.links.push({source:1, target:graph.nodes.length-1});
     });
 
+    var mindate = splitDateTime(d3.max(visitarray));
+    var maxdate = splitDateTime(d3.min(visitarray));
+
     vitals.results.forEach(function (d) {
-      d.name = d.vital_type.label + "\n" + d.rate.value;
+      d.name = d.vital_type.label + "\n" + d.rate.value + "\n" + d.date_time_vitals_entered.value;
       d.group = "Vital";
+      d.jsdate = splitDateTime(d.date_time_vitals_entered.value);
       graph.nodes.push(d);
-      graph.links.push({source:3, target:graph.nodes.length-1});
+      graph.links.push({source:2, target:graph.nodes.length-1});
       visits.results.forEach(function (x) {
-          if(d.date_time_vitals_taken.value == x.visit_admit_datetime.value) {
-            findDateConnections(d,x,graph)
-          }
+        if(d.jsdate.getTime() == x.jsdate.getTime()) {
+          findDateConnections(d,x,graph)
+        };
       });
     });
 
     problems.results.forEach(function (d) {
       d.name = d.diagnosis.label + "\n" + d.diagnosis.sameAsLabel;
       d.group = "Problem";
+      d.jsdate=splitDateTime(d.date_entered.value);
       graph.nodes.push(d);
-      graph.links.push({source:2, target:graph.nodes.length-1});
-      visits.results.forEach(function (x, i) {
-        if(d.date_entered.value == x.visit_admit_datetime.value) {
-            findDateConnections(d,x,graph)
-        }
+      graph.links.push({source:1, target:graph.nodes.length-1});
+      visits.results.forEach(function (x) {
+        if(d.jsdate.getTime() == x.jsdate.getTime()) {
+          findDateConnections(d,x,graph)
+        };
       });
     });
 
     allergies.results.forEach(function (d) {
       d.name = d.gmr_allergy.label + "\n" + d.reactant.value;
       d.group = "Allergy";
+      try {
+        d.jsdate=splitDateTime(d.verification_date_time.value)
+        }
+      catch(e){};
       graph.nodes.push(d);
-      graph.links.push({source:4, target:graph.nodes.length-1});
-      visits.results.forEach(function (x, i) {
-          try {
-            if(d.verification_date_time.value == x.visit_admit_datetime.value) {
-              findDateConnections(d,x,graph)
-            }
+      graph.links.push({source:3, target:graph.nodes.length-1});
+      visits.results.forEach(function (x) {
+        try {
+          if(d.verification_date_time.value == x.visit_admit_datetime.value) {
+            findDateConnections(d,x,graph)
           }
-          catch(e){};
+        }
+        catch(e){};
       });
     });
 
     prescription.results.forEach(function (d) {
       d.name = d.drug.label + "\n" + d.issue_date.value;
       d.group = "Prescription";
+      d.jsdate = splitDateTime(d.issue_date.value);
       graph.nodes.push(d);
-      graph.links.push({source:5, target:graph.nodes.length-1});
+      graph.links.push({source:4, target:graph.nodes.length-1});
       visits.results.forEach(function (x) {
-          if(d.issue_date.value == x.visit_admit_datetime.value) {
-            findDateConnections(d,x,graph)
-          }
+        if(d.jsdate.getTime() == x.jsdate.getTime()) {
+          findDateConnections(d,x,graph)
+        };
       });
     });
 
     immunizations.results.forEach(function (d) {
       d.name= d.immunization.label + "\n" + d.visit.label;
       d.group = "Immunization";
+      d.jsdate = splitDateTime(d.visit.label.replace("VISIT/",""));
       graph.nodes.push(d);
-      graph.links.push({source:6, target:graph.nodes.length-1});
-      visits.results.forEach(function (x, i) {
-          if(d.visit.label == "VISIT/" + x.visit_admit_datetime.value) {
-            findDateConnections(d,x,graph)
-          }
+      graph.links.push({source:5, target:graph.nodes.length-1});
+      visits.results.forEach(function (x) {
+        if(d.jsdate.getTime() == x.jsdate.getTime()) {
+          findDateConnections(d,x,graph);
+        };
       });
     });
 
     cpt.results.forEach(function (d) {
       d.name = d.cpt.label + "\n" + d.visit.label;
       d.group = "CPT Code";
+      d.jsdate = splitDateTime(d.visit.label.replace("VISIT/",""));
       graph.nodes.push(d);
-      graph.links.push({source:7, target:graph.nodes.length-1});
-      visits.results.forEach(function (x, i) {
-          if(d.visit.label == "VISIT/" + x.visit_admit_datetime.value) {
-            findDateConnections(d,x,graph)
-          };
+      graph.links.push({source:6, target:graph.nodes.length-1});
+      visits.results.forEach(function (x) {
+        if(d.jsdate.getTime() == x.jsdate.getTime()) {
+          findDateConnections(d,x,graph);
+        };
       });
     });
 
-var width = 960,
-    height = 750;
+    var width = 960,
+        height = 625;
 
-var color = d3.scale.category20();
-var force = d3.layout.force()
-    .charge(-120)
-    .linkDistance(30)
-    .size([width, height]);
+    var color = d3.scale.category20();
+    var timescale = d3.time.scale()
+               .rangeRound([0,width])
+               .domain([maxdate,mindate]);
 
-if(d3.select("body").select("svg")){
-    d3.select("body").select("svg").remove("node");
-    d3.select("body").select("svg").remove("link");
-}
-var svg = d3.select("body").append("svg")
-    .attr("width", width)
-    .attr("height", height);
+    var Xaxis = d3.svg.axis()
+                .scale(timescale)
+                .orient('bottom')
+                .ticks(d3.time.month, 6);
 
-  force
-      .nodes(graph.nodes)
-      .links(graph.links)
-      .start();
+    var force = d3.layout.force()
+        .charge(-120)
+        .linkDistance(30)
+        .size([width, height]);
 
-  var link = svg.selectAll(".link")
-      .data(graph.links)
-    .enter().append("line")
-      .attr("class", "link")
-      .style("stroke-width", function(d) { return Math.sqrt(d.value); });
+    if(d3.select("body").select("svg")){
+        d3.select("body").select("svg").remove("node");
+        d3.select("body").select("svg").remove("link");
+    };
 
-  var node = svg.selectAll(".node")
-      .data(graph.nodes)
-    .enter().append("path")
-      .attr("class", "node")
-      .attr("d", d3.svg.symbol()
-        .type(function(d) {
-          if(d.group== "CommonDates") { return "square";}
-          else {return "circle";};})
-        .size(function (d) {
-          if(d.group=="CommonDates") { return "128";}
-          else {return 64;};}))
-      .style("fill", function(d) { return color(d.group); })
-      .call(force.drag);
+    var svg = d3.select("body").append("svg")
+        .attr("width", width)
+        .attr("height", height);
 
-  svg.select(".node").attr("d",d3.svg.symbol().size(192));
-  node.append("title")
-      .text(function(d) { return d.name; });
+    force
+        .nodes(graph.nodes)
+        .links(graph.links)
+        .start();
 
-  force.on("tick", function() {
-    node.attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")";});
-    link.attr("x1", function(d) { return d.source.x; })
-        .attr("y1", function(d) { return d.source.y; })
-        .attr("x2", function(d) { return d.target.x; })
-        .attr("y2", function(d) { return d.target.y; });
-  });
-}
-function queryPatient(patientIEN){
-  d3.json("service/"+patientIEN, function (error,data) {
-      problems      = data[0];
-      visits        = data[1];
-      vitals        = data[2];
-      allergies     = data[3];
-      prescription  = data[4];
-      immunizations = data[5];
-      cpt           = data[6];
-      /*console.log(visits);
-      console.log(problems);
-      console.log(allergies);
-      console.log(prescription);
-      console.log(immunizations);
-      console.log(cpt);
-      console.log(vitals);*/
-      patientPlot(visits, problems, vitals, allergies, prescription, immunizations, cpt);
-  });
-};
-  /*
-  d3.json("visits.json", function (error, visits) {
-    d3.json("problems.json", function (error_1, problems) {
-      d3.json("vitals.json", function (error_2, vitals) {
-        console.log(visits);
-        console.log(problems);
-        console.log(vitals);
-        patientPlot(visits, problems, vitals);
-      });
+    var link = svg.selectAll(".link")
+        .data(graph.links)
+      .enter().append("line")
+        .attr("class", "link")
+        .style("stroke-width", function(d) { return Math.sqrt(d.value); });
+
+    var node = svg.selectAll(".node")
+        .data(graph.nodes)
+      .enter().append("path")
+        .attr("class", "node")
+        .attr("d", d3.svg.symbol()
+          .type(function(d) {
+            if(d.group== "Visit") { return "square";}
+            else {return "circle";};})
+          .size(function (d) {
+            if(d.group=="Visit") { return "128";}
+            else {return 64;};}))
+        .style("fill", function(d) { return color(d.group); })
+        .call(force.drag);
+
+    svg.select(".node").attr("d",d3.svg.symbol().size(192));
+
+    svg.append('g').attr('class','xaxis')
+                   .attr('transform','translate(0,' + height * .95 + ')')
+                   .call(Xaxis);
+
+    node.append("title")
+        .text(function(d) { return d.name;});
+
+    svg.selectAll(".node").on("click", function(d){
+      if(d3.event.target.__data__.group == "Visit") {
+        svg.selectAll(".foundlink")[0].forEach(function(y){
+          y.attributes.class.value="link";
+        });
+        svg.selectAll(".link")[0].forEach(function(y){
+          if(y.__data__.source == d3.event.target.__data__){y.attributes.class.value="foundlink";}
+        });
+      };
     });
-  });
-  */
+
+    force.on("tick", function() {
+      node.attr("transform", function(d) {
+        if(d.group == "Visit"){return "translate(" + timescale(d.jsdate) + "," + height * .95 + ")"; }
+        else{return "translate(" + d.x + "," + d.y + ")"; }
+      });
+      link.attr("x1", function(d) {
+        if(d.source.group == "Visit"){return timescale(d.source.jsdate); }
+        else{return d.source.x; };
+      })
+      .attr("y1", function(d) {
+        if(d.source.group == "Visit"){return height * .95; }
+        else{return d.source.y; };
+      })
+      .attr("x2", function(d) { return d.target.x; })
+      .attr("y2", function(d) { return d.target.y; });
+    });
+  svg.selectAll(".xaxis text").attr("transform","translate(20,22) rotate(90)");
+  }
+  function queryPatient(patientIEN){
+    d3.json("service/"+patientIEN, function (error,data) {
+        problems      = data[0];
+        visits        = data[1];
+        vitals        = data[2];
+        allergies     = data[3];
+        prescription  = data[4];
+        immunizations = data[5];
+        cpt           = data[6];
+        patientPlot(visits, problems, vitals, allergies, prescription, immunizations, cpt);
+    });
+  };
 </script>
 </body>
