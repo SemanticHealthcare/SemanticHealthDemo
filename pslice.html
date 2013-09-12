@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.node {
+  stroke: #fff;
+  stroke-width: 1.5px;
+}
+
+.link {
+  stroke: #999;
+  stroke-width:15px;
+  stroke-opacity: .6;
+}
+
+</style>
+<body>
+<center>
+<h1>Visualization of the VistA FileMan Structure</h1>
+<h2>Demonstrating the distance map from the Patient (#2) file</h2>
+<h2>Part of the "Learning the Language of Healthcare" ARMY SBIR </h2>
+<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+<script>
+
+var diameter = 1700
+var tree = d3.layout.tree()
+    .size([595, diameter / 2 - 50])
+    .separation(function(a, b) { return (a.parent == b.parent ? 1 : 2) / a.depth; });
+
+var svg = d3.select("body").append("svg")
+    .attr("width",diameter)
+    .attr("height",diameter)
+  .append("g")
+    .attr("transform", "translate(" + diameter / 2 + "," + diameter / 2 + ")");
+
+d3.json("pSliceDGFiles.json", function (error, fileman) {
+  var tempnodes0=[];
+  var tempnodes1=[];
+  var tempnodes2=[];
+  var tempnodes3=[];
+  fileman.forEach( function(d) {
+    switch(d.indexedPath.length){
+      case 0:
+       tempnodes0.push({name: d.label});
+       break;
+      case 1:
+       tempnodes1.push({name: d.label});
+       break;
+      case 2:
+       tempnodes2.push({name: d.label});
+       break;
+      case 3:
+       tempnodes3.push({name: d.label});
+       break;
+    };
+  });
+
+  tempnodes0.push({name: "Direct Links", children: tempnodes1});
+  tempnodes1.push({name: "1 steps", children: tempnodes2});
+  tempnodes2.push({name: "2 steps", children: tempnodes3});
+  tempnodes3.push({name: "3 steps"});
+  var graph={
+    nodes: [{name: "Patient File", size: 80,children: tempnodes0}],
+    links: []
+    };
+
+  nodes= tree.nodes(graph.nodes[0]);
+  links= tree.links(nodes);
+
+  var node = svg.selectAll(".node")
+      .data(nodes)
+    .enter().append("g")
+      .attr("class", "node")
+      .attr("transform", function(d) { return "rotate(" + (d.x - 90) + ")translate(" + d.y + ")"; });
+
+  node.append("circle")
+      .attr("r", 4.5);
+
+  node.append("text")
+      .attr("dy", 3)
+      .text(function(d) { return d.name; })
+      .attr("text-anchor", function(d) { return d.x < 180 ? "start" : "end"; })
+      .attr("transform", function(d) { return d.x < 180 ? "translate(8)" : "rotate(180)translate(-8)"; })
+      .attr("font-size","7px")
+      .attr("stroke","black")
+      .attr("stroke-width",'.5');
+});
+
+d3.select(self.frameElement).style("height", diameter - 150 + "px");
+
+</script>
+</body>
