@@ -24,7 +24,7 @@
 
 var diameter = 1700
 var tree = d3.layout.tree()
-    .size([595, diameter / 2 - 50])
+    .size([442, diameter / 2 - 50])
     .separation(function(a, b) { return (a.parent == b.parent ? 1 : 2) / a.depth; });
 
 var svg = d3.select("body").append("svg")
@@ -55,12 +55,12 @@ d3.json("pSliceDGFiles.json", function (error, fileman) {
     };
   });
 
-  tempnodes0.push({name: "Direct Links", children: tempnodes1});
-  tempnodes1.push({name: "1 steps", children: tempnodes2});
+  tempnodes0.push({name: "No Path"});
+  tempnodes1.push({name: "Direct Links", children: tempnodes2});
   tempnodes2.push({name: "2 steps", children: tempnodes3});
-  tempnodes3.push({name: "3 steps"});
+  tempnodes3.push({name: "3 steps", children: tempnodes0});
   var graph={
-    nodes: [{name: "Patient File", size: 80,children: tempnodes0}],
+    nodes: [{name: "Patient File", size: 80,children: tempnodes1}],
     links: []
     };
 
@@ -79,9 +79,9 @@ d3.json("pSliceDGFiles.json", function (error, fileman) {
   node.append("text")
       .attr("dy", 3)
       .text(function(d) { return d.name; })
-      .attr("text-anchor", function(d) { return d.x < 180 ? "start" : "end"; })
-      .attr("transform", function(d) { return d.x < 180 ? "translate(8)" : "rotate(180)translate(-8)"; })
-      .attr("font-size","7px")
+      .attr("text-anchor", function(d) { return d.x < 180 || d.x > 360 ? "start" : "end"; })
+      .attr("transform", function(d) { return d.x < 180 || d.x > 360 ? "translate(8)" : "rotate(180)translate(-8)"; })
+      .attr("font-size","5px")
       .attr("stroke","black")
       .attr("stroke-width",'.5');
 });
